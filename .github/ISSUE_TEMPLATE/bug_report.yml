@@ -1,0 +1,58 @@
+name: Bug report
+description: Something in the package does not behave as documented.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please do **not** paste your IndexNow key — it identifies
+        your site and it is not needed to reproduce a bug.
+
+  - type: input
+    id: package-version
+    attributes:
+      label: Package version
+      placeholder: 1.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: php-version
+    attributes:
+      label: PHP version
+      placeholder: "8.3.14"
+    validations:
+      required: true
+
+  - type: input
+    id: http-client
+    attributes:
+      label: PSR-18 client
+      description: Which HTTP client and PSR-17 factories are you using?
+      placeholder: guzzlehttp/guzzle 7.9 + nyholm/psr7 1.8
+    validations:
+      required: false
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Include the exception message and stack trace if there is one.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproducer
+    attributes:
+      label: Minimal reproducer
+      description: The shortest snippet that shows the problem.
+      render: php
+    validations:
+      required: true

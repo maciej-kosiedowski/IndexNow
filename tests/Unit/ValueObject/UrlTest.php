@@ -26,6 +26,23 @@ final class UrlTest extends TestCase
         self::assertSame('http://example.com', $url->value);
     }
 
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function uppercaseSchemeProvider(): iterable
+    {
+        yield 'https' => ['HTTPS://example.com/a'];
+        yield 'http' => ['HtTp://example.com/a'];
+    }
+
+    #[DataProvider('uppercaseSchemeProvider')]
+    public function testSchemeComparisonIsCaseInsensitive(string $value): void
+    {
+        $url = new Url($value);
+
+        self::assertSame($value, $url->value, 'the original spelling is preserved');
+    }
+
     public function testTrimsWhitespace(): void
     {
         $url = new Url("   https://example.com\n");
@@ -36,6 +53,13 @@ final class UrlTest extends TestCase
     public function testHostReturnsLowercaseHost(): void
     {
         $url = new Url('https://Example.COM/path');
+
+        self::assertSame('example.com', $url->host());
+    }
+
+    public function testHostDropsTheFullyQualifiedTrailingDot(): void
+    {
+        $url = new Url('https://Example.COM./path');
 
         self::assertSame('example.com', $url->host());
     }
@@ -60,12 +84,35 @@ final class UrlTest extends TestCase
         yield 'no scheme' => ['example.com'];
         yield 'malformed' => ['http://'];
         yield 'with spaces' => ['https://example .com'];
+        yield 'scheme separator without scheme' => ['://example.com'];
     }
 
     #[DataProvider('invalidUrlProvider')]
     public function testRejectsInvalidUrls(string $value): void
     {
         $this->expectException(InvalidUrlException::class);
+        $this->expectExceptionMessage('is not a valid http/https URL');
+
+        new Url($value);
+    }
+
+    /**
+     * The scheme has to start the value; a scheme found further inside the
+     * string must not be mistaken for the URL's own scheme.
+     *
+     * @return iterable<string, array{string}>
+     */
+    public static function schemeNotAtTheStartProvider(): iterable
+    {
+        yield 'digit before the scheme' => ['1ftp://example.com'];
+        yield 'separator before the scheme' => ['://ftp://example.com'];
+    }
+
+    #[DataProvider('schemeNotAtTheStartProvider')]
+    public function testRejectsValuesWhoseSchemeDoesNotStartTheUrl(string $value): void
+    {
+        $this->expectException(InvalidUrlException::class);
+        $this->expectExceptionMessage('is not a valid http/https URL');
 
         new Url($value);
     }
@@ -73,8 +120,16 @@ final class UrlTest extends TestCase
     public function testRejectsUnsupportedScheme(): void
     {
         $this->expectException(InvalidUrlException::class);
-        $this->expectExceptionMessage('ftp');
+        $this->expectExceptionMessage('URL scheme "ftp" is not supported');
 
         new Url('ftp://example.com');
+    }
+
+    public function testLowercasesTheSchemeBeforeCheckingIt(): void
+    {
+        $this->expectException(InvalidUrlException::class);
+        $this->expectExceptionMessage('URL scheme "ftp" is not supported');
+
+        new Url('FTP://example.com');
     }
 }

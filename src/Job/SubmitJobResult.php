@@ -9,11 +9,13 @@ use SlimAD\IndexNow\Exception\SubmitFailedException;
 final class SubmitJobResult
 {
     /**
-     * @param list<SubmitFailedException> $failures
+     * @param list<SubmitFailedException> $failures one entry per engine that rejected the batch or was unreachable
+     * @param int $discardedUrls number of queued URLs dropped because they do not belong to the configured host
      */
     public function __construct(
         public readonly int $submittedUrls,
         public readonly array $failures,
+        public readonly int $discardedUrls = 0,
     ) {
     }
 

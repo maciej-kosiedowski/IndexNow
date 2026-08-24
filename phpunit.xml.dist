@@ -3,8 +3,11 @@
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
          bootstrap="vendor/autoload.php"
          colors="true"
+         executionOrder="random"
+         resolveDependencies="true"
          failOnRisky="true"
          failOnWarning="true"
+         failOnNotice="true"
          cacheDirectory=".phpunit.cache"
          beStrictAboutOutputDuringTests="true"
          beStrictAboutTestsThatDoNotTestAnything="true"
@@ -19,9 +22,4 @@
             <directory>src</directory>
         </include>
     </source>
-    <coverage>
-        <report>
-            <text outputFile="php://stdout" showOnlySummary="true"/>
-        </report>
-    </coverage>
 </phpunit>

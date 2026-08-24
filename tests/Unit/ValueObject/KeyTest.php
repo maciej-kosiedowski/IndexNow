@@ -63,7 +63,7 @@ final class KeyTest extends TestCase
         yield 'with slash' => ['abcd/efgh'];
         yield 'with underscore' => ['abcd_efgh'];
         yield 'with dot' => ['abcd.efgh'];
-        yield 'with diacritic' => ['abcdefgh' . chr(0xc3) . chr(0xa9)];
+        yield 'with diacritic' => ['abcdefgh' . \chr(0xc3) . \chr(0xa9)];
     }
 
     #[DataProvider('invalidCharactersProvider')]

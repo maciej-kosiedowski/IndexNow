@@ -27,6 +27,13 @@ final class HostTest extends TestCase
         self::assertSame('www.example.com', $host->value);
     }
 
+    public function testDropsTheFullyQualifiedTrailingDot(): void
+    {
+        $host = new Host('example.com.');
+
+        self::assertSame('example.com', $host->value);
+    }
+
     public function testMatchesUrlOnSameHost(): void
     {
         $host = new Host('example.com');
@@ -36,6 +43,19 @@ final class HostTest extends TestCase
         self::assertFalse($host->matches(new Url('https://other.com/foo')));
     }
 
+    public function testMatchesRegardlessOfTheTrailingDotOnEitherSide(): void
+    {
+        self::assertTrue((new Host('example.com.'))->matches(new Url('https://example.com/foo')));
+        self::assertTrue((new Host('example.com'))->matches(new Url('https://example.com./foo')));
+    }
+
+    public function testDoesNotMatchSubdomains(): void
+    {
+        $host = new Host('example.com');
+
+        self::assertFalse($host->matches(new Url('https://www.example.com/foo')));
+    }
+
     /**
      * @return iterable<string, array{string}>
      */
@@ -43,9 +63,12 @@ final class HostTest extends TestCase
     {
         yield 'empty' => [''];
         yield 'whitespace only' => ['   '];
+        yield 'dot only' => ['.'];
         yield 'with scheme' => ['https://example.com'];
         yield 'with slash' => ['example.com/path'];
         yield 'with space' => ['example .com'];
+        yield 'with underscore' => ['exa_mple.com'];
+        yield 'leading dash' => ['-example.com'];
     }
 
     #[DataProvider('invalidHostProvider')]
