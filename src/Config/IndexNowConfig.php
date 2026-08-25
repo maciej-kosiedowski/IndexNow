@@ -24,7 +24,12 @@ final class IndexNowConfig
         }
 
         $indexed = [];
+
         foreach ($engines as $engine) {
+            if (isset($indexed[$engine->name])) {
+                throw InvalidConfigException::duplicateEngine($engine->name);
+            }
+
             $indexed[$engine->name] = $engine;
         }
 

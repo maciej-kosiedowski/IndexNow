@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace SlimAD\IndexNow\Tests\Unit\Config;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SlimAD\IndexNow\Config\SearchEngine;
+use SlimAD\IndexNow\Exception\InvalidConfigException;
 use SlimAD\IndexNow\Exception\InvalidUrlException;
 use SlimAD\IndexNow\ValueObject\Key;
 use SlimAD\IndexNow\ValueObject\KeyLocation;
@@ -103,5 +105,28 @@ final class SearchEngineTest extends TestCase
 
         self::assertSame('indexnow', $engine->name);
         self::assertSame(SearchEngine::ENDPOINT_INDEXNOW_API, $engine->endpoint);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function emptyNameProvider(): iterable
+    {
+        yield 'empty string' => [''];
+        yield 'whitespace only' => ["  \t\n "];
+    }
+
+    #[DataProvider('emptyNameProvider')]
+    public function testRejectsEmptyName(string $name): void
+    {
+        $this->expectException(InvalidConfigException::class);
+        $this->expectExceptionMessage('non-empty name');
+
+        new SearchEngine(
+            $name,
+            'https://example.com/indexnow',
+            new Key('abcdef0123456789'),
+            KeyLocation::fromString('https://example.com/abcdef0123456789.txt'),
+        );
     }
 }

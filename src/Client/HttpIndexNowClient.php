@@ -13,10 +13,13 @@ use SlimAD\IndexNow\Exception\SubmitFailedException;
 
 final class HttpIndexNowClient implements IndexNowClient
 {
+    public const DEFAULT_USER_AGENT = 'indexnow-php';
+
     public function __construct(
         private readonly ClientInterface $httpClient,
         private readonly RequestFactoryInterface $requestFactory,
         private readonly StreamFactoryInterface $streamFactory,
+        private readonly string $userAgent = self::DEFAULT_USER_AGENT,
     ) {
     }
 
@@ -28,7 +31,7 @@ final class HttpIndexNowClient implements IndexNowClient
             ->createRequest('POST', $request->endpoint)
             ->withHeader('Content-Type', 'application/json; charset=utf-8')
             ->withHeader('Accept', 'application/json')
-            ->withHeader('User-Agent', 'SlimAD-IndexNow/1.0')
+            ->withHeader('User-Agent', $this->userAgent)
             ->withBody($this->streamFactory->createStream($body));
 
         try {

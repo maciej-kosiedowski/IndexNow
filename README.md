@@ -1,15 +1,19 @@
 # SlimAD\IndexNow
 
-[![PHP Version](https://img.shields.io/badge/php-%5E8.1-blue.svg)](composer.json)
+[![CI](https://github.com/maciej-kosiedowski/IndexNow/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/maciej-kosiedowski/IndexNow/actions/workflows/ci.yml)
+[![Security](https://github.com/maciej-kosiedowski/IndexNow/actions/workflows/security.yml/badge.svg?branch=master)](https://github.com/maciej-kosiedowski/IndexNow/actions/workflows/security.yml)
+[![Latest stable version](https://img.shields.io/packagist/v/slimad/indexnow.svg)](https://packagist.org/packages/slimad/indexnow)
+[![PHP version](https://img.shields.io/packagist/dependency-v/slimad/indexnow/php.svg)](composer.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 A small, framework-agnostic [IndexNow](https://www.indexnow.org/documentation) client and queue
-for PHP 8.1+. Notify Bing, Yandex, Seznam, Naver and Yep about new or updated URLs without
+for PHP 8.2+. Notify Bing, Yandex, Seznam, Naver and Yep about new or updated URLs without
 pulling a single framework dependency.
 
 The package is intentionally minimal: it exposes a queue, an HTTP-based submitter, a job that
-drains the queue, and a handful of value objects. Framework integrations (e.g. Laravel) live in
-separate packages.
+drains the queue, and a handful of value objects. Framework integrations live in separate
+packages — for Laravel use
+[`slimad/indexnow-laravel`](https://github.com/maciej-kosiedowski/IndexNow-for-Laravel).
 
 ## Why?
 
@@ -47,7 +51,7 @@ event listener --->    | IndexNowService   |  ---> queues URLs
             cron / scheduler ----+
                                  |
                                  v
-                        +-----------------+      submit per engine
+                        +-----------------+      submit per engine, <= 10 000 URLs per call
                         |   SubmitJob     |  --------------------------> +------------------+
                         +-----------------+                              | IndexNowClient   |
                                                                          +------------------+
@@ -66,8 +70,8 @@ event listener --->    | IndexNowService   |  ---> queues URLs
 ## Quick start
 
 ```php
-use Nyholm\Psr7\Factory\Psr17Factory;
 use GuzzleHttp\Client as GuzzleClient;
+use Nyholm\Psr7\Factory\Psr17Factory;
 use SlimAD\IndexNow\Client\HttpIndexNowClient;
 use SlimAD\IndexNow\Config\IndexNowConfig;
 use SlimAD\IndexNow\Config\SearchEngine;
@@ -82,16 +86,14 @@ use SlimAD\IndexNow\ValueObject\Url;
 $psr17 = new Psr17Factory();
 $httpClient = new GuzzleClient();
 
+$key = (string) getenv('INDEXNOW_KEY');
+
 $config = new IndexNowConfig(
     new Host('example.com'),
     [
-        SearchEngine::bing(
-            new Key((string) getenv('INDEXNOW_BING_KEY')),
-            KeyLocation::fromString('https://example.com/' . getenv('INDEXNOW_BING_KEY') . '.txt'),
-        ),
-        SearchEngine::yandex(
-            new Key((string) getenv('INDEXNOW_YANDEX_KEY')),
-            KeyLocation::fromString('https://example.com/' . getenv('INDEXNOW_YANDEX_KEY') . '.txt'),
+        SearchEngine::indexNowApi(
+            new Key($key),
+            KeyLocation::fromString('https://example.com/' . $key . '.txt'),
         ),
     ],
 );
@@ -110,6 +112,7 @@ $result = $job->run();
 if ($result->hasFailures()) {
     foreach ($result->failures as $failure) {
         // log and let the next tick retry; the queue is preserved on failure
+        error_log($failure->getMessage());
     }
 }
 ```
@@ -123,18 +126,24 @@ if ($result->hasFailures()) {
 
 The package ships with factories for the well-known engines (`SearchEngine::bing`,
 `SearchEngine::yandex`, `SearchEngine::seznam`, `SearchEngine::naver`, `SearchEngine::yep`,
-`SearchEngine::indexNowApi`) and a generic constructor for custom endpoints.
+`SearchEngine::indexNowApi`) and a generic constructor for custom endpoints. Engine names have
+to be unique within one `IndexNowConfig`.
+
+> Participating engines forward submissions to each other, so a single endpoint —
+> `SearchEngine::indexNowApi()` — is usually enough. Configure several engines only when you
+> deliberately want to notify them independently, for example because each one was verified with
+> a different key.
 
 A typical environment-driven config looks like:
 
 ```env
 INDEXNOW_HOST=example.com
-INDEXNOW_BING_KEY=abcdef0123456789abcdef0123456789
-INDEXNOW_YANDEX_KEY=0123456789abcdef0123456789abcdef
+INDEXNOW_KEY=abcdef0123456789abcdef0123456789
 ```
 
 `KeyLocation` must point at a file on your domain that returns the matching key as `text/plain`,
-e.g. `https://example.com/abcdef0123456789abcdef0123456789.txt`.
+e.g. `https://example.com/abcdef0123456789abcdef0123456789.txt`. The key is deliberately public:
+it is an ownership proof, not a credential.
 
 ## Wiring listeners
 
@@ -156,11 +165,28 @@ IndexNow recommends batching changes within minutes.
 `SubmitJob::run()` returns a `SubmitJobResult` with:
 
 * `submittedUrls` — number of URLs in the batch
+* `discardedUrls` — number of queued URLs that were dropped because they do not belong to the
+  configured host
 * `failures` — `list<SubmitFailedException>`, one per engine that rejected the batch or was
   unreachable
 * `isSuccess()` / `hasFailures()` helpers
 
 If any engine fails the job keeps the URLs in the store for the next run.
+
+### Batching
+
+The IndexNow specification caps a single submission at 10 000 URLs. `SubmitJob` chunks the queue
+accordingly; pass a smaller batch size if you prefer smaller requests:
+
+```php
+$job = new SubmitJob($store, $client, $config, batchSize: 500);
+```
+
+### Foreign URLs
+
+IndexNow only accepts URLs that belong to the submitted host. Anything queued for a different
+host is dropped by `SubmitJob::run()` and counted in `SubmitJobResult::$discardedUrls`, so one
+mistyped URL cannot block the queue forever.
 
 ## Custom storage
 
@@ -182,33 +208,66 @@ interface UrlStore
 ## Custom HTTP transport
 
 `HttpIndexNowClient` only depends on PSR-18 / PSR-17. Any compliant client works (Guzzle, Symfony
-HTTP Client, Buzz, ...). If you need a different request shape (e.g. the GET form with
-`?url=&key=`), implement `IndexNowClient` yourself — `submit(SubmitRequest)` is the entire
-contract.
+HTTP Client, Buzz, ...). It sends a `User-Agent` identifying this package; override it to identify
+your own application:
+
+```php
+$client = new HttpIndexNowClient($httpClient, $psr17, $psr17, 'acme-shop/2.1');
+```
+
+If you need a different request shape (e.g. the GET form with `?url=&key=`), implement
+`IndexNowClient` yourself — `submit(SubmitRequest)` is the entire contract.
+
+## Error handling
+
+Everything the package throws extends `SlimAD\IndexNow\Exception\IndexNowException`:
+
+| Exception                 | Thrown when                                                        |
+| ------------------------- | ------------------------------------------------------------------ |
+| `InvalidUrlException`     | a value is not an absolute `http`/`https` URL                        |
+| `InvalidHostException`    | a value is not a valid host name                                     |
+| `InvalidKeyException`     | a key is shorter than 8 / longer than 128 chars or has bad characters |
+| `InvalidConfigException`  | the configuration or a submit request is inconsistent                |
+| `SubmitFailedException`   | an endpoint was unreachable or rejected the submission               |
+
+`SubmitFailedException` carries the `$endpoint`, the `$statusCode` (`null` for transport errors)
+and the raw `$responseBody`, so you can branch on them instead of parsing the message.
+
+## Notes and limitations
+
+* Internationalised domains have to be supplied in punycode (`https://xn--wa-fka.pl/`).
+* `Host` matching is exact: `example.com` does not match `www.example.com`. Configure the host
+  that your canonical URLs actually use.
+* The package does not retry on its own. A failed run leaves the URLs in the store, so the next
+  scheduled run retries them.
 
 ## Quality gates
 
 This package targets:
 
-* PHP 8.1+
-* PHPStan **level 9** (with strict rules)
-* 100% line and mutation coverage via [Infection](https://infection.github.io/)
+* PHP 8.2, 8.3, 8.4 and 8.5, verified against both lowest and highest dependency versions
+* PHPStan **level 10** with strict rules
+* 100% line coverage and a 100% mutation score ([Infection](https://infection.github.io/))
+* PSR-12 based coding standard enforced by PHP-CS-Fixer
+* `composer audit` and Dependabot for dependency hygiene
 
 Local development:
 
 ```bash
 composer install
-composer phpstan
-composer test
+composer ci          # cs + phpstan + test + infection
+composer test        # PHPUnit only
 composer infection   # requires xdebug or pcov
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
 
 ## Roadmap
 
 1. Core package (this repo).
-2. `slimad/indexnow-laravel` — service provider, config publishing, event listeners, scheduler
-   binding.
-3. Integration in the Stamp project.
+2. [`slimad/indexnow-laravel`](https://github.com/maciej-kosiedowski/IndexNow-for-Laravel) —
+   service provider, config publishing, cache/database stores, queued job, Artisan commands,
+   scheduler binding, model observer.
 
 ## License
 

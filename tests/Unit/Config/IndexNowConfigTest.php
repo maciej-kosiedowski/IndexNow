@@ -27,11 +27,32 @@ final class IndexNowConfigTest extends TestCase
         self::assertNull($config->engine('unknown'));
     }
 
+    public function testKeepsTheConfiguredEngineOrder(): void
+    {
+        $yandex = SearchEngine::yandex(new Key('0123456789abcdef'), KeyLocation::fromString('https://example.com/k.txt'));
+        $bing = SearchEngine::bing(new Key('abcdef0123456789'), KeyLocation::fromString('https://example.com/k.txt'));
+
+        $config = new IndexNowConfig(new Host('example.com'), [$yandex, $bing]);
+
+        self::assertSame(['yandex', 'bing'], array_keys($config->engines));
+    }
+
     public function testRejectsEmptyEngines(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('at least one search engine');
 
         new IndexNowConfig(new Host('example.com'), []);
+    }
+
+    public function testRejectsDuplicateEngineNames(): void
+    {
+        $first = SearchEngine::bing(new Key('abcdef0123456789'), KeyLocation::fromString('https://example.com/one.txt'));
+        $second = SearchEngine::bing(new Key('0123456789abcdef'), KeyLocation::fromString('https://example.com/two.txt'));
+
+        $this->expectException(InvalidConfigException::class);
+        $this->expectExceptionMessage('Search engine "bing" is configured more than once');
+
+        new IndexNowConfig(new Host('example.com'), [$first, $second]);
     }
 }

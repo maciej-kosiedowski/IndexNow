@@ -6,6 +6,12 @@ namespace SlimAD\IndexNow\ValueObject;
 
 use SlimAD\IndexNow\Exception\InvalidUrlException;
 
+/**
+ * An absolute http/https URL.
+ *
+ * Internationalised domain names have to be supplied in their punycode form
+ * (`https://xn--wa-fka.pl/`); IndexNow endpoints reject non-ASCII hosts too.
+ */
 final class Url
 {
     public readonly string $value;
@@ -31,12 +37,15 @@ final class Url
         $this->value = $trimmed;
     }
 
+    /**
+     * The lower-cased host of this URL, without the optional trailing dot.
+     */
     public function host(): string
     {
+        /** @var string $host the constructor already guaranteed that this URL has a host */
         $host = parse_url($this->value, PHP_URL_HOST);
-        \assert(\is_string($host) && $host !== '');
 
-        return strtolower($host);
+        return rtrim(strtolower($host), '.');
     }
 
     public function equals(self $other): bool

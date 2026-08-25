@@ -1,34 +1,53 @@
 {
     "name": "slimad/indexnow",
     "description": "Framework-agnostic IndexNow client and queue for submitting URL changes to participating search engines (Bing, Yandex, Seznam, Naver, Yep).",
-    "type": "library",
     "license": "MIT",
+    "type": "library",
     "keywords": [
         "indexnow",
         "seo",
         "bing",
         "yandex",
+        "seznam",
+        "naver",
+        "yep",
         "search-engine",
-        "indexing"
+        "indexing",
+        "crawling"
     ],
     "authors": [
         {
-            "name": "Maciej Kosiedowski"
+            "name": "Maciej Kosiedowski",
+            "homepage": "https://github.com/maciej-kosiedowski",
+            "role": "Developer"
         }
     ],
+    "homepage": "https://github.com/maciej-kosiedowski/IndexNow",
+    "support": {
+        "issues": "https://github.com/maciej-kosiedowski/IndexNow/issues",
+        "source": "https://github.com/maciej-kosiedowski/IndexNow",
+        "security": "https://github.com/maciej-kosiedowski/IndexNow/security/policy"
+    },
     "require": {
-        "php": "^8.1",
+        "php": "^8.2",
         "psr/http-client": "^1.0",
         "psr/http-factory": "^1.0",
         "psr/http-message": "^1.1 || ^2.0"
     },
     "require-dev": {
-        "phpunit/phpunit": "^10.5",
-        "phpstan/phpstan": "^1.12",
-        "phpstan/phpstan-strict-rules": "^1.6",
-        "phpstan/phpstan-phpunit": "^1.4",
-        "infection/infection": "^0.27 || ^0.29",
-        "nyholm/psr7": "^1.8"
+        "friendsofphp/php-cs-fixer": "^3.64",
+        "infection/infection": "^0.29 || ^0.35",
+        "nyholm/psr7": "^1.8",
+        "phpstan/phpstan": "^2.1",
+        "phpstan/phpstan-phpunit": "^2.0",
+        "phpstan/phpstan-strict-rules": "^2.0",
+        "phpunit/phpunit": "^11.5 || ^12.0 || ^13.0"
+    },
+    "suggest": {
+        "guzzlehttp/guzzle": "A PSR-18 HTTP client implementation (^7.5)",
+        "nyholm/psr7": "A lightweight PSR-7/PSR-17 implementation (^1.8)",
+        "symfony/http-client": "An alternative PSR-18 HTTP client implementation (^6.4 || ^7.0)",
+        "slimad/indexnow-laravel": "Laravel service provider, config, queue jobs and Artisan commands for this package"
     },
     "autoload": {
         "psr-4": {
@@ -40,23 +59,40 @@
             "SlimAD\\IndexNow\\Tests\\": "tests/"
         }
     },
-    "scripts": {
-        "test": "phpunit",
-        "test:coverage": "phpunit --coverage-text --coverage-html=build/coverage",
-        "phpstan": "phpstan analyse",
-        "infection": "infection --threads=4 --min-msi=100 --min-covered-msi=100",
-        "ci": [
-            "@phpstan",
-            "@test",
-            "@infection"
-        ]
-    },
     "config": {
-        "sort-packages": true,
         "allow-plugins": {
             "infection/extension-installer": true
+        },
+        "sort-packages": true
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "1.x-dev"
         }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "scripts": {
+        "ci": [
+            "@cs",
+            "@phpstan",
+            "@test",
+            "@infection"
+        ],
+        "cs": "php-cs-fixer fix --dry-run --diff",
+        "cs:fix": "php-cs-fixer fix",
+        "infection": "infection --threads=max --min-msi=100 --min-covered-msi=100",
+        "phpstan": "phpstan analyse",
+        "test": "phpunit",
+        "test:coverage": "phpunit --coverage-text --coverage-html=build/coverage"
+    },
+    "scripts-descriptions": {
+        "ci": "Runs the full local quality gate: coding standards, static analysis, tests and mutation testing.",
+        "cs": "Checks the coding standards without modifying files.",
+        "cs:fix": "Fixes coding standard violations in place.",
+        "infection": "Runs mutation testing and enforces a 100% mutation score.",
+        "phpstan": "Runs PHPStan static analysis at level 9.",
+        "test": "Runs the PHPUnit test suite.",
+        "test:coverage": "Runs the PHPUnit test suite and generates a coverage report."
+    }
 }

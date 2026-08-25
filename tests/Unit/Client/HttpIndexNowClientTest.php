@@ -46,15 +46,25 @@ final class HttpIndexNowClientTest extends TestCase
         self::assertSame('https://api.indexnow.org/indexnow', (string) $sent->getUri());
         self::assertSame('application/json; charset=utf-8', $sent->getHeaderLine('Content-Type'));
         self::assertSame('application/json', $sent->getHeaderLine('Accept'));
-        self::assertNotSame('', $sent->getHeaderLine('User-Agent'));
+        self::assertSame(HttpIndexNowClient::DEFAULT_USER_AGENT, $sent->getHeaderLine('User-Agent'));
 
-        $payload = json_decode((string) $sent->getBody(), true);
-        self::assertSame([
-            'host' => 'example.com',
-            'key' => 'abcdef0123456789',
-            'keyLocation' => 'https://example.com/abcdef0123456789.txt',
-            'urlList' => ['https://example.com/a', 'https://example.com/b'],
-        ], $payload);
+        self::assertSame(
+            '{"host":"example.com","key":"abcdef0123456789","keyLocation":"https://example.com/abcdef0123456789.txt",'
+            . '"urlList":["https://example.com/a","https://example.com/b"]}',
+            (string) $sent->getBody(),
+            'slashes must not be escaped so the payload stays readable',
+        );
+    }
+
+    public function testUsesTheConfiguredUserAgent(): void
+    {
+        $http = new FakeHttpClient([new Response(200)]);
+        $factory = new Psr17Factory();
+        $client = new HttpIndexNowClient($http, $factory, $factory, 'acme-shop/2.1');
+
+        $client->submit($this->makeRequest());
+
+        self::assertSame('acme-shop/2.1', $http->requests[0]->getHeaderLine('User-Agent'));
     }
 
     /**
@@ -84,6 +94,8 @@ final class HttpIndexNowClientTest extends TestCase
      */
     public static function failureStatusProvider(): iterable
     {
+        yield '199 boundary' => [199];
+        yield '300 boundary' => [300];
         yield '400 bad request' => [400];
         yield '403 forbidden' => [403];
         yield '422 invalid key' => [422];
@@ -97,10 +109,16 @@ final class HttpIndexNowClientTest extends TestCase
         $factory = new Psr17Factory();
         $client = new HttpIndexNowClient($http, $factory, $factory);
 
-        $this->expectException(SubmitFailedException::class);
-        $this->expectExceptionMessage((string) $status);
+        try {
+            $client->submit($this->makeRequest());
 
-        $client->submit($this->makeRequest());
+            self::fail('A non 2xx response must be reported as a failed submission.');
+        } catch (SubmitFailedException $exception) {
+            self::assertSame($status, $exception->statusCode);
+            self::assertSame('rejected body', $exception->responseBody);
+            self::assertSame('https://api.indexnow.org/indexnow', $exception->endpoint);
+            self::assertStringContainsString((string) $status, $exception->getMessage());
+        }
     }
 
     public function testWrapsTransportError(): void
@@ -109,9 +127,15 @@ final class HttpIndexNowClientTest extends TestCase
         $factory = new Psr17Factory();
         $client = new HttpIndexNowClient($http, $factory, $factory);
 
-        $this->expectException(SubmitFailedException::class);
-        $this->expectExceptionMessage('connection refused');
+        try {
+            $client->submit($this->makeRequest());
 
-        $client->submit($this->makeRequest());
+            self::fail('A transport error must be reported as a failed submission.');
+        } catch (SubmitFailedException $exception) {
+            self::assertStringContainsString('connection refused', $exception->getMessage());
+            self::assertSame('https://api.indexnow.org/indexnow', $exception->endpoint);
+            self::assertNull($exception->statusCode);
+            self::assertNull($exception->responseBody);
+        }
     }
 }

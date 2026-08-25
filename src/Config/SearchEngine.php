@@ -4,10 +4,19 @@ declare(strict_types=1);
 
 namespace SlimAD\IndexNow\Config;
 
+use SlimAD\IndexNow\Exception\InvalidConfigException;
 use SlimAD\IndexNow\ValueObject\Key;
 use SlimAD\IndexNow\ValueObject\KeyLocation;
 use SlimAD\IndexNow\ValueObject\Url;
 
+/**
+ * A single IndexNow endpoint together with the credentials used against it.
+ *
+ * Participating engines share submissions with each other, so submitting to a
+ * single endpoint is usually enough. Configure several engines only when you
+ * deliberately want to notify them independently (for example because each of
+ * them was verified with a different key).
+ */
 final class SearchEngine
 {
     public const ENDPOINT_INDEXNOW_API = 'https://api.indexnow.org/indexnow';
@@ -25,6 +34,10 @@ final class SearchEngine
         public readonly Key $key,
         public readonly KeyLocation $keyLocation,
     ) {
+        if (trim($name) === '') {
+            throw InvalidConfigException::emptyEngineName();
+        }
+
         $this->endpoint = (new Url($endpoint))->value;
     }
 
