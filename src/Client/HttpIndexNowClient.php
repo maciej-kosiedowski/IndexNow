@@ -13,7 +13,7 @@ use SlimAD\IndexNow\Exception\SubmitFailedException;
 
 final class HttpIndexNowClient implements IndexNowClient
 {
-    public const DEFAULT_USER_AGENT = 'slimad-indexnow-php (+https://github.com/maciej-kosiedowski/IndexNow)';
+    public const DEFAULT_USER_AGENT = 'indexnow-php';
 
     public function __construct(
         private readonly ClientInterface $httpClient,
