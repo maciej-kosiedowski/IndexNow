@@ -13,6 +13,10 @@ composer install
 A coverage driver (`pcov` or `xdebug`) is required for the coverage and mutation
 testing steps; the plain test suite runs without one.
 
+This repo ships pre-commit hooks (`detect-secrets`, `gitleaks`) that scan staged
+changes for accidentally committed secrets. Run `pip install pre-commit && pre-commit install`
+once after cloning so they run automatically on every commit.
+
 ## Quality gate
 
 Every pull request has to pass the same gate that CI runs:
